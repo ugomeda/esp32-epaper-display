@@ -129,3 +129,13 @@ would be updated.
 
 - Weather icons : https://github.com/erikflowers/weather-icons
 - LodePNG : https://lodev.org/lodepng/
+
+
+## Troubleshooting
+
+```
+In file included from src/epd.c:1:0:
+include/epd.h:8:21: fatal error: lodepng.h: No such file or directory
+```
+
+You're probably running an outdated version of framework-espidf. Try running `pio update`.
