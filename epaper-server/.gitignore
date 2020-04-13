@@ -1,0 +1,7 @@
+*.pyc
+screen.png
+home.png
+config.json
+config_me.json
+credentials.json
+token.pickle

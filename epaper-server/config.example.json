@@ -1,0 +1,41 @@
+{
+    "default": {
+        "size": "640x384",
+        "updateEvery": "10 minutes",
+        "settings": {
+            "locale": "en_US",
+            "timezone": "America/New_York",
+            "units": "imperial"
+        },
+        "widgets": [
+            {
+                "widget": "date",
+                "position": "0, 0",
+                "size": "640x61"
+            },
+            {
+                "widget": "googlemaps",
+                "position": "0, 68",
+                "size": "300x316",
+                "settings": {
+                    "client_key": "XXXXXX",
+                    "home_address": "White House, Pennsylvania Avenue Northwest, Washington, District de Columbia, États-Unis",
+                    "work_address": "20391 Lowes Island Blvd, Sterling, VA 20165, États-Unis"
+                }
+            },
+            {
+                "widget": "weather",
+                "position": "300, 67",
+                "size": "340x280",
+                "updateEvery": "1 hour",
+                "settings": {
+                    "api_key": "XXXXXX",
+                    "city_id": "5815135"
+                }
+            }
+        ]
+    },
+    "tokens": {
+        "l0i5gJsjtTt0ieu6pL3U": "home"
+    }
+}
