@@ -258,7 +258,7 @@ static void update_task(void *pvParameters)
         float waiting_time_us = next_request_time - esp_timer_get_time();
 
         // Go to deep sleep if next update is in more than 5 seconds
-        if (next_request_time - esp_timer_get_time() > 5 * 1e6)
+        if (waiting_time_us > 5 * 1e6)
         {
             ESP_LOGI(UPDATER_TAG, "Going to deep sleep %.2f seconds until next update", waiting_time_us * 1e-6);
 
@@ -278,7 +278,10 @@ static void update_task(void *pvParameters)
             ESP_LOGE(UPDATER_TAG, "This should not be reachable !");
         }
 
-        vTaskDelay(waiting_time_us * 1e-3 / portTICK_PERIOD_MS);
+        if (waiting_time_us > 0)
+        {
+            vTaskDelay(waiting_time_us * 1e-3 / portTICK_PERIOD_MS);
+        }
     }
 }
 
