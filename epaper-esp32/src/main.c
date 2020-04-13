@@ -7,6 +7,7 @@
 #include "nvs_flash.h"
 #include "esp_http_client.h"
 #include "driver/gpio.h"
+#include "esp_sleep.h"
 #include <epd.h>
 #include <settings.h>
 
@@ -28,6 +29,7 @@ static const char *WIFI_TAG = "wifi";
 static EventGroupHandle_t s_connect_event_group;
 static const char *s_connection_name;
 static ip4_addr_t s_ip_addr;
+bool wifi_disconnecting = false;
 
 static void wifi_event_ip_available(void *arg, esp_event_base_t event_base,
                                     int32_t event_id, void *event_data)
@@ -40,8 +42,11 @@ static void wifi_event_ip_available(void *arg, esp_event_base_t event_base,
 static void wifi_event_disconnect(void *arg, esp_event_base_t event_base,
                                   int32_t event_id, void *event_data)
 {
-    ESP_LOGI(WIFI_TAG, "Got disconnected, trying to reconnect...");
-    ESP_ERROR_CHECK(esp_wifi_connect());
+    if (!wifi_disconnecting)
+    {
+        ESP_LOGI(WIFI_TAG, "Got disconnected, trying to reconnect...");
+        ESP_ERROR_CHECK(esp_wifi_connect());
+    }
 }
 
 static void wifi_initialize()
@@ -86,7 +91,11 @@ esp_err_t wifi_wait_until_connected(void)
  */
 static const char *UPDATER_TAG = "updater";
 static const char *DISPLAY_TAG = "display";
-char *current_tag = NULL;
+
+// This is the ID of the image currently displayed.
+// This is persisted across deep sleep mode.
+RTC_DATA_ATTR char current_tag[MAX_ETAG_SIZE] = {0};
+
 int64_t next_request_time = 0;
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
@@ -234,8 +243,6 @@ static void update_task(void *pvParameters)
     strcpy(url, SETTINGS_SERVER_URL);
     strcat(url, "get/");
 
-    current_tag = calloc(MAX_ETAG_SIZE + 1, sizeof(char));
-
     while (true)
     {
         esp_err_t err = update(url);
@@ -243,16 +250,35 @@ static void update_task(void *pvParameters)
         {
             ESP_LOGE(UPDATER_TAG, "Error while updating : %s", esp_err_to_name(err));
 
-            // TODO IF FAILED RESET ETAG AND SET DEFAULT NEXT REQUEST TIME
+            // Assume current tag and next request are invalid
+            current_tag[0] = '\0';
+            next_request_time = esp_timer_get_time() + SETTINGS_DEFAULT_UPDATE_TIME * 1e6;
         }
 
-        // Calculate the time to wait
-        float waiting_time_ms = (next_request_time - esp_timer_get_time()) * 1e-3;
-        if (waiting_time_ms > 0)
+        float waiting_time_us = next_request_time - esp_timer_get_time();
+
+        // Go to deep sleep if next update is in more than 5 seconds
+        if (next_request_time - esp_timer_get_time() > 5 * 1e6)
         {
-            ESP_LOGI(DISPLAY_TAG, "Wait %.2f seconds until next update", waiting_time_ms * 1e-3);
-            vTaskDelay(waiting_time_ms / portTICK_PERIOD_MS);
+            ESP_LOGI(UPDATER_TAG, "Going to deep sleep %.2f seconds until next update", waiting_time_us * 1e-6);
+
+            // Tell the event listener we should no try to reconnect to the Wifi
+            wifi_disconnecting = true;
+            ESP_ERROR_CHECK(esp_wifi_stop());
+
+            // Configure as shown in the documentation
+            esp_sleep_enable_timer_wakeup(next_request_time - esp_timer_get_time());
+            const int ext_wakeup_pin_1 = 2;
+            const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
+            const int ext_wakeup_pin_2 = 4;
+            const uint64_t ext_wakeup_pin_2_mask = 1ULL << ext_wakeup_pin_2;
+            esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask | ext_wakeup_pin_2_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
+            esp_deep_sleep_start();
+
+            ESP_LOGE(UPDATER_TAG, "This should not be reachable !");
         }
+
+        vTaskDelay(waiting_time_us * 1e-3 / portTICK_PERIOD_MS);
     }
 }
 
