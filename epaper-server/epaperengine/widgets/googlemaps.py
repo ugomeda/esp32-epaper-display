@@ -46,7 +46,7 @@ class GooglemapsWidget(BaseWidget):
         arguments = {
             "size": f"{width}x{height}",
             "path": (
-                "color:0x000000FF|weight:6|enc:"
+                "color:0x000000FF|weight:4|enc:"
                 + directions[0]["overview_polyline"]["points"]
             ),
             "style": "visibility:simplified",
